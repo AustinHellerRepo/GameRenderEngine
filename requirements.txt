@@ -1,4 +1,4 @@
 Panda3D==1.10.7
-git+https://github.com/AustinHellerRepo/Common
 git+https://github.com/AustinHellerRepo/Threading
 git+https://github.com/AustinHellerRepo/SocketQueuedMessageFramework
+git+https://github.com/AustinHellerRepo/Common

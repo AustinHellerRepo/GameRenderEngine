@@ -1,0 +1,4 @@
+Panda3D
+common-austinhellerrepo@ git+https://github.com/AustinHellerRepo/Common
+threading-austinhellerrepo@ git+https://github.com/AustinHellerRepo/Threading
+socket-queued-message-framework-austinhellerrepo@ git+https://github.com/AustinHellerRepo/SocketQueuedMessageFramework
