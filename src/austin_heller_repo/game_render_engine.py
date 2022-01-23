@@ -924,7 +924,7 @@ class RenderEngine():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: __initialize: end")
 
-	def __get_rendered_instance_states_by_event_type(self, *, event_type: EventTypeEnum) -> List[RenderedInstanceState]:
+	def get_rendered_instance_states_by_event_type(self, *, event_type: EventTypeEnum) -> List[RenderedInstanceState]:
 		rendered_instance_states = []  # type: List[RenderedInstanceState]
 		for rendered_instance in self.__rendered_instances_per_event_type[event_type]:
 			rendered_instance_states.append(rendered_instance.get_rendered_instance_state())
@@ -944,7 +944,7 @@ class RenderEngine():
 					time_delta=time_delta,
 					event_uuid=str(uuid.uuid4()),
 					source_render_engine_uuid=self.__render_engine_uuid,
-					rendered_instance_states=self.__get_rendered_instance_states_by_event_type(
+					rendered_instance_states=self.get_rendered_instance_states_by_event_type(
 						event_type=EventTypeEnum.MouseMoved
 					),
 					triggered_datetime=triggered_datetime
@@ -992,7 +992,7 @@ class RenderEngine():
 		if EventTypeEnum.CurveCompleted in self.__on_event_callable_per_event_type:
 			if completed_curve_uuids:
 				# trigger curve completed event
-				rendered_instance_states = self.__get_rendered_instance_states_by_event_type(
+				rendered_instance_states = self.get_rendered_instance_states_by_event_type(
 					event_type=EventTypeEnum.CurveCompleted
 				)
 				on_event_callable = self.__on_event_callable_per_event_type[EventTypeEnum.CurveCompleted]
