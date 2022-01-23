@@ -1181,3 +1181,26 @@ class RenderEngine():
 		finally:
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: dispose: end")
+
+
+class RenderEngineFactory():
+
+	def __init__(self, *, is_client: bool, models: List[Model], fonts: List[Font], images: List[Image], on_event_callable_per_event_type: Dict[EventTypeEnum, Callable[[RenderEngine, Event], None]] = None, is_debug: bool = False):
+
+		self.__is_client = is_client
+		self.__models = models
+		self.__fonts = fonts
+		self.__images = images
+		self.__on_event_callable_per_event_type = on_event_callable_per_event_type
+		self.__is_debug = is_debug
+
+	def get_render_engine(self) -> RenderEngine:
+		return RenderEngine(
+			render_engine_uuid=str(uuid.uuid4()),
+			is_client=self.__is_client,
+			models=self.__models,
+			fonts=self.__fonts,
+			images=self.__images,
+			on_event_callable_per_event_type=self.__on_event_callable_per_event_type,
+			is_debug=self.__is_debug
+		)
