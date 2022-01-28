@@ -365,7 +365,7 @@ class Curve():
 
 class Instance(ABC):
 
-	def __init__(self, *, instance_uuid: str, instance_type: InstanceTypeEnum, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str):
+	def __init__(self, *, instance_uuid: str, instance_type: InstanceTypeEnum, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
 
 		self.__instance_uuid = instance_uuid
 		self.__instance_type = instance_type
@@ -374,6 +374,7 @@ class Instance(ABC):
 		self.__renderer_event_types = renderer_event_types
 		self.__owner_render_engine_uuid = owner_render_engine_uuid
 		self.__parent_instance_uuid = parent_instance_uuid
+		self.__rendered_by_client_uuids = rendered_by_client_uuids
 
 	def get_instance_uuid(self) -> str:
 		return self.__instance_uuid
@@ -402,6 +403,9 @@ class Instance(ABC):
 	def get_parent_instance_uuid(self) -> str:
 		return self.__parent_instance_uuid
 
+	def get_rendered_by_client_uuids(self) -> List[str]:
+		return self.__rendered_by_client_uuids
+
 	def to_json(self) -> Dict:
 		return {
 			"instance_uuid": self.__instance_uuid,
@@ -410,7 +414,8 @@ class Instance(ABC):
 			"client_event_types": [x.value for x in self.__client_event_types],
 			"renderer_event_types": [x.value for x in self.__renderer_event_types],
 			"owner_render_engine_uuid": self.__owner_render_engine_uuid,
-			"parent_instance_uuid": self.__parent_instance_uuid
+			"parent_instance_uuid": self.__parent_instance_uuid,
+			"rendered_by_client_uuids": self.__rendered_by_client_uuids
 		}
 
 	@staticmethod
@@ -438,7 +443,7 @@ class Instance(ABC):
 
 class ModelInstance(Instance):
 
-	def __init__(self, model_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str):
+	def __init__(self, model_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Model,
@@ -446,7 +451,8 @@ class ModelInstance(Instance):
 			client_event_types=client_event_types,
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
-			parent_instance_uuid=parent_instance_uuid
+			parent_instance_uuid=parent_instance_uuid,
+			rendered_by_client_uuids=rendered_by_client_uuids
 		)
 
 		self.__model_uuid = model_uuid
@@ -468,13 +474,14 @@ class ModelInstance(Instance):
 			client_event_types=[EventTypeEnum(x) for x in json_dict["client_event_types"]],
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
-			parent_instance_uuid=json_dict["parent_instance_uuid"]
+			parent_instance_uuid=json_dict["parent_instance_uuid"],
+			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
 		)
 
 
 class TextInstance(Instance):
 
-	def __init__(self, font_uuid: str, text: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str):
+	def __init__(self, font_uuid: str, text: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Text,
@@ -482,7 +489,8 @@ class TextInstance(Instance):
 			client_event_types=client_event_types,
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
-			parent_instance_uuid=parent_instance_uuid
+			parent_instance_uuid=parent_instance_uuid,
+			rendered_by_client_uuids=rendered_by_client_uuids
 		)
 
 		self.__font_uuid = font_uuid
@@ -513,13 +521,14 @@ class TextInstance(Instance):
 			client_event_types=[EventTypeEnum(x) for x in json_dict["client_event_types"]],
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
-			parent_instance_uuid=json_dict["parent_instance_uuid"]
+			parent_instance_uuid=json_dict["parent_instance_uuid"],
+			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
 		)
 
 
 class ImageInstance(Instance):
 
-	def __init__(self, image_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str):
+	def __init__(self, image_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Image,
@@ -527,7 +536,8 @@ class ImageInstance(Instance):
 			client_event_types=client_event_types,
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
-			parent_instance_uuid=parent_instance_uuid
+			parent_instance_uuid=parent_instance_uuid,
+			rendered_by_client_uuids=rendered_by_client_uuids
 		)
 
 		self.__image_uuid = image_uuid
@@ -549,13 +559,14 @@ class ImageInstance(Instance):
 			client_event_types=[EventTypeEnum(x) for x in json_dict["client_event_types"]],
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
-			parent_instance_uuid=json_dict["parent_instance_uuid"]
+			parent_instance_uuid=json_dict["parent_instance_uuid"],
+			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
 		)
 
 
 class CameraInstance(Instance):
 
-	def __init__(self, client_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str):
+	def __init__(self, client_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Camera,
@@ -563,7 +574,8 @@ class CameraInstance(Instance):
 			client_event_types=client_event_types,
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
-			parent_instance_uuid=parent_instance_uuid
+			parent_instance_uuid=parent_instance_uuid,
+			rendered_by_client_uuids=rendered_by_client_uuids
 		)
 
 		self.__client_uuid = client_uuid
@@ -585,7 +597,8 @@ class CameraInstance(Instance):
 			client_event_types=[EventTypeEnum(x) for x in json_dict["client_event_types"]],
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
-			parent_instance_uuid=json_dict["parent_instance_uuid"]
+			parent_instance_uuid=json_dict["parent_instance_uuid"],
+			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
 		)
 
 
@@ -924,12 +937,6 @@ class RenderEngine():
 			if self.__is_debug:
 				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: __initialize: end")
 
-	def get_rendered_instance_states_by_event_type(self, *, event_type: EventTypeEnum) -> List[RenderedInstanceState]:
-		rendered_instance_states = []  # type: List[RenderedInstanceState]
-		for rendered_instance in self.__rendered_instances_per_event_type[event_type]:
-			rendered_instance_states.append(rendered_instance.get_rendered_instance_state())
-		return rendered_instance_states
-
 	def __mouse_move_task(self, task: Task):
 		if self.__show_base.mouseWatcherNode.hasMouse():
 			mouse_x, mouse_y, triggered_datetime = self.__show_base.mouseWatcherNode.getMouseX(), self.__show_base.mouseWatcherNode.getMouseY(), datetime.utcnow()
@@ -1009,6 +1016,12 @@ class RenderEngine():
 
 	def get_render_engine_uuid(self) -> str:
 		return self.__render_engine_uuid
+
+	def get_rendered_instance_states_by_event_type(self, *, event_type: EventTypeEnum) -> List[RenderedInstanceState]:
+		rendered_instance_states = []  # type: List[RenderedInstanceState]
+		for rendered_instance in self.__rendered_instances_per_event_type[event_type]:
+			rendered_instance_states.append(rendered_instance.get_rendered_instance_state())
+		return rendered_instance_states
 
 	def start(self, on_start_callable: Callable[[RenderEngine], None]):
 		if self.__is_debug:
