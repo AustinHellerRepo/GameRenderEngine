@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: game-render-engine-austinhellerrepo
-Version: 0.0.5
+Version: 0.0.6
 Summary: A framework for rendering and manipulating game elements while communicating that between clients and server
 Home-page: https://github.com/AustinHellerRepo/GameRenderEngine
 Author: Austin Heller

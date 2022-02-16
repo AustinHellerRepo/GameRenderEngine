@@ -155,7 +155,8 @@ class RenderEngineTest(unittest.TestCase):
 					client_event_types=[],
 					renderer_event_types=[],
 					owner_render_engine_uuid=render_engine.get_render_engine_uuid(),
-					parent_instance_uuid=None
+					parent_instance_uuid=None,
+					rendered_by_client_manager_uuids=[]
 				)
 			]
 		)
@@ -201,7 +202,8 @@ class RenderEngineTest(unittest.TestCase):
 					client_event_types=[],
 					renderer_event_types=[],
 					owner_render_engine_uuid=render_engine.get_render_engine_uuid(),
-					parent_instance_uuid=None
+					parent_instance_uuid=None,
+					rendered_by_client_manager_uuids=[]
 				),
 				CameraInstance(
 					client_uuid=render_engine.get_render_engine_uuid(),
@@ -226,7 +228,8 @@ class RenderEngineTest(unittest.TestCase):
 					client_event_types=[],
 					renderer_event_types=[],
 					owner_render_engine_uuid=render_engine.get_render_engine_uuid(),
-					parent_instance_uuid=None
+					parent_instance_uuid=None,
+					rendered_by_client_manager_uuids=[]
 				)
 			]
 		)

@@ -2,11 +2,13 @@ from __future__ import annotations
 from typing import List, Tuple, Dict, Set, Callable, Type
 from datetime import datetime
 import uuid
-from austin_heller_repo.common import StringEnum, FloatReference, DateTimeDeltaCalculator
+from austin_heller_repo.common import StringEnum, FloatReference, DateTimeDeltaCalculator, HostPointer
 from austin_heller_repo.threading import Semaphore
+from austin_heller_repo.socket import ServerSocketFactory, ReadWriteSocketClosedException, ClientSocket
 from abc import ABC, abstractmethod
 import sys
 import os
+import json
 from direct.showbase.ShowBase import ShowBase, DirectionalLight, LColor, PointLight, NodePath, CollisionBox, Point3F, CollisionNode, CollisionHandlerQueue, CollisionTraverser, CollisionHandlerPusher, CollisionEntry, TextNode, TextFont, CardMaker, Texture, WindowProperties
 from direct.task import Task
 from direct.stdpy import threading
@@ -42,13 +44,14 @@ class EventTypeEnum(StringEnum):
 
 class Event(ABC):
 
-	def __init__(self, *, event_uuid: str, event_type: EventTypeEnum, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime):
+	def __init__(self, *, event_uuid: str, event_type: EventTypeEnum, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime, source_client_manager_uuid: str):
 
 		self.__event_uuid = event_uuid
 		self.__event_type = event_type
 		self.__source_render_engine_uuid = source_render_engine_uuid
 		self.__rendered_instance_states = rendered_instance_states
 		self.__triggered_datetime = triggered_datetime
+		self.__source_client_manager_uuid = source_client_manager_uuid
 
 	def get_event_uuid(self) -> str:
 		return self.__event_uuid
@@ -65,13 +68,20 @@ class Event(ABC):
 	def get_triggered_datetime(self) -> datetime:
 		return self.__triggered_datetime
 
+	def set_source_client_manager_uuid(self, *, client_manager_uuid: str):
+		self.__source_client_manager_uuid = client_manager_uuid
+
+	def get_source_client_manager_uuid(self) -> str:
+		return self.__source_client_manager_uuid
+
 	def to_json(self) -> Dict:
 		return {
 			"event_uuid": self.__event_uuid,
 			"event_type": self.__event_type.value,
 			"source_render_engine_uuid": self.__source_render_engine_uuid,
 			"rendered_instance_states": [x.to_json() for x in self.__rendered_instance_states],
-			"triggered_datetime": self.__triggered_datetime.strftime("%Y-%m-%d %H:%M:%S.%f")
+			"triggered_datetime": self.__triggered_datetime.strftime("%Y-%m-%d %H:%M:%S.%f"),
+			"source_client_manager_uuid": self.__source_client_manager_uuid
 		}
 
 	@staticmethod
@@ -95,13 +105,14 @@ class Event(ABC):
 
 class CurveCompletedEvent(Event):
 
-	def __init__(self, *, curve_uuid: str, event_uuid: str, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime):
+	def __init__(self, *, curve_uuid: str, event_uuid: str, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime, source_client_manager_uuid: str):
 		super().__init__(
 			event_uuid=event_uuid,
 			event_type=EventTypeEnum.CurveCompleted,
 			source_render_engine_uuid=source_render_engine_uuid,
 			rendered_instance_states=rendered_instance_states,
-			triggered_datetime=triggered_datetime
+			triggered_datetime=triggered_datetime,
+			source_client_manager_uuid=source_client_manager_uuid
 		)
 
 		self.__curve_uuid = curve_uuid
@@ -121,19 +132,21 @@ class CurveCompletedEvent(Event):
 			event_uuid=json_dict["event_uuid"],
 			source_render_engine_uuid=json_dict["source_render_engine_uuid"],
 			rendered_instance_states=[RenderedInstanceState.parse_json(json_dict=x) for x in json_dict["rendered_instance_states"]],
-			triggered_datetime=datetime.strptime(json_dict["triggered_datetime"], "%Y-%m-%d %H:%M:%S.%f")
+			triggered_datetime=datetime.strptime(json_dict["triggered_datetime"], "%Y-%m-%d %H:%M:%S.%f"),
+			source_client_manager_uuid=json_dict["source_client_manager_uuid"]
 		)
 
 
 class MouseMovedEvent(Event):
 
-	def __init__(self, *, mouse_x_delta: float, mouse_y_delta: float, time_delta: float, event_uuid: str, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime):
+	def __init__(self, *, mouse_x_delta: float, mouse_y_delta: float, time_delta: float, event_uuid: str, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime, source_client_manager_uuid: str):
 		super().__init__(
 			event_uuid=event_uuid,
 			event_type=EventTypeEnum.MouseMoved,
 			source_render_engine_uuid=source_render_engine_uuid,
 			rendered_instance_states=rendered_instance_states,
-			triggered_datetime=triggered_datetime
+			triggered_datetime=triggered_datetime,
+			source_client_manager_uuid=source_client_manager_uuid
 		)
 
 		self.__mouse_x_delta = mouse_x_delta
@@ -165,7 +178,140 @@ class MouseMovedEvent(Event):
 			event_uuid=json_dict["event_uuid"],
 			source_render_engine_uuid=json_dict["source_render_engine_uuid"],
 			rendered_instance_states=[RenderedInstanceState.parse_json(json_dict=x) for x in json_dict["rendered_instance_states"]],
-			triggered_datetime=datetime.strptime(json_dict["triggered_datetime"], "%Y-%m-%d %H:%M:%S.%f")
+			triggered_datetime=datetime.strptime(json_dict["triggered_datetime"], "%Y-%m-%d %H:%M:%S.%f"),
+			source_client_manager_uuid=json_dict["source_client_manager_uuid"]
+		)
+
+
+class KeyTypeEnum(StringEnum):
+	LetterA = "letter_a"
+	LetterB = "letter_b"
+	LetterC = "letter_c"
+	LetterD = "letter_d"
+	LetterE = "letter_e"
+	LetterF = "letter_f"
+	LetterG = "letter_g"
+	LetterH = "letter_h"
+	LetterI = "letter_i"
+	LetterJ = "letter_j"
+	LetterK = "letter_k"
+	LetterL = "letter_l"
+	LetterM = "letter_m"
+	LetterN = "letter_n"
+	LetterO = "letter_o"
+	LetterP = "letter_p"
+	LetterQ = "letter_q"
+	LetterR = "letter_r"
+	LetterS = "letter_s"
+	LetterT = "letter_t"
+	LetterU = "letter_u"
+	LetterV = "letter_v"
+	LetterW = "letter_w"
+	LetterX = "letter_x"
+	LetterY = "letter_y"
+	LetterZ = "letter_z"
+	Number0 = "number_0"
+	Number1 = "number_1"
+	Number2 = "number_2"
+	Number3 = "number_3"
+	Number4 = "number_4"
+	Number5 = "number_5"
+	Number6 = "number_6"
+	Number7 = "number_7"
+	Number8 = "number_8"
+	Number9 = "number_9"
+	SymbolComma = "symbol_comma"
+	SymbolPeriod = "symbol_period"
+	SymbolMinus = "symbol_minus"
+	SymbolEqual = "symbol_equal"
+	FunctionSpace = "function_space"
+	FunctionTab = "function_tab"
+	FunctionEnter = "function_enter"
+	FunctionBackspace = "function_backspace"
+	FunctionDelete = "function_delete"
+	FunctionLeftArrow = "function_left_arrow"
+	FunctionUpArrow = "function_up_arrow"
+	FunctionRightArrow = "function_right_arrow"
+	FunctionDownArrow = "function_down_arrow"
+
+
+class KeyEvent(Event):
+
+	def __init__(self, *, key_type_value: str, is_down: bool, event_uuid: str, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime, source_client_manager_uuid: str):
+		super().__init__(
+			event_uuid=event_uuid,
+			event_type=EventTypeEnum.MouseMoved,
+			source_render_engine_uuid=source_render_engine_uuid,
+			rendered_instance_states=rendered_instance_states,
+			triggered_datetime=triggered_datetime,
+			source_client_manager_uuid=source_client_manager_uuid
+		)
+
+		self.__key_type_value = key_type_value
+		self.__is_down = is_down
+
+	def get_key_type(self) -> KeyTypeEnum:
+		return KeyTypeEnum(self.__key_type_value)
+
+	def get_is_down(self) -> bool:
+		return self.__is_down
+
+	def to_json(self) -> Dict:
+		json_dict = super().to_json()
+		json_dict["key_type_value"] = self.__key_type_value
+		json_dict["is_down"] = self.__is_down
+		return json_dict
+
+	@staticmethod
+	def parse_json(*, json_dict: Dict) -> KeyEvent:
+		return KeyEvent(
+			key_type_value=json_dict["key_type_value"],
+			is_down=json_dict["is_down"],
+			event_uuid=json_dict["event_uuid"],
+			source_render_engine_uuid=json_dict["source_render_engine_uuid"],
+			rendered_instance_states=[RenderedInstanceState.parse_json(json_dict=x) for x in json_dict["rendered_instance_states"]],
+			triggered_datetime=datetime.strptime(json_dict["triggered_datetime"], "%Y-%m-%d %H:%M:%S.%f"),
+			source_client_manager_uuid=json_dict["source_client_manager_uuid"]
+		)
+
+
+class CollisionEvent(Event):
+
+	def __init__(self, *, from_instance_uuid: str, into_instance_uuid: str, event_uuid: str, source_render_engine_uuid: str, rendered_instance_states: List[RenderedInstanceState], triggered_datetime: datetime, source_client_manager_uuid: str):
+		super().__init__(
+			event_uuid=event_uuid,
+			event_type=EventTypeEnum.MouseMoved,
+			source_render_engine_uuid=source_render_engine_uuid,
+			rendered_instance_states=rendered_instance_states,
+			triggered_datetime=triggered_datetime,
+			source_client_manager_uuid=source_client_manager_uuid
+		)
+
+		self.__from_instance_uuid = from_instance_uuid
+		self.__into_instance_uuid = into_instance_uuid
+
+	def get_from_instance_uuid(self) -> str:
+		return self.__from_instance_uuid
+
+	def get_into_instance_uuid(self) -> str:
+		return self.__into_instance_uuid
+
+	def to_json(self) -> Dict:
+		json_dict = super().to_json()
+		json_dict["from_instance_uuid"] = self.__from_instance_uuid
+		json_dict["into_instance_uuid"] = self.__into_instance_uuid
+		return json_dict
+
+	@staticmethod
+	def parse_json(*, json_dict: Dict) -> CollisionEvent:
+		return CollisionEvent(
+			from_instance_uuid=json_dict["from_instance_uuid"],
+			into_instance_uuid=json_dict["into_instance_uuid"],
+			event_uuid=json_dict["event_uuid"],
+			source_render_engine_uuid=json_dict["source_render_engine_uuid"],
+			rendered_instance_states=[RenderedInstanceState.parse_json(json_dict=x) for x in json_dict["rendered_instance_states"]],
+			triggered_datetime=datetime.strptime(json_dict["triggered_datetime"], "%Y-%m-%d %H:%M:%S.%f"),
+			source_client_manager_uuid=json_dict["source_client_manager_uuid"]
 		)
 
 
@@ -365,7 +511,7 @@ class Curve():
 
 class Instance(ABC):
 
-	def __init__(self, *, instance_uuid: str, instance_type: InstanceTypeEnum, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
+	def __init__(self, *, instance_uuid: str, instance_type: InstanceTypeEnum, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_manager_uuids: List[str]):
 
 		self.__instance_uuid = instance_uuid
 		self.__instance_type = instance_type
@@ -374,7 +520,7 @@ class Instance(ABC):
 		self.__renderer_event_types = renderer_event_types
 		self.__owner_render_engine_uuid = owner_render_engine_uuid
 		self.__parent_instance_uuid = parent_instance_uuid
-		self.__rendered_by_client_uuids = rendered_by_client_uuids
+		self.__rendered_by_client_manager_uuids = rendered_by_client_manager_uuids
 
 	def get_instance_uuid(self) -> str:
 		return self.__instance_uuid
@@ -403,8 +549,8 @@ class Instance(ABC):
 	def get_parent_instance_uuid(self) -> str:
 		return self.__parent_instance_uuid
 
-	def get_rendered_by_client_uuids(self) -> List[str]:
-		return self.__rendered_by_client_uuids
+	def get_rendered_by_client_manager_uuids(self) -> List[str]:
+		return self.__rendered_by_client_manager_uuids
 
 	def to_json(self) -> Dict:
 		return {
@@ -415,7 +561,7 @@ class Instance(ABC):
 			"renderer_event_types": [x.value for x in self.__renderer_event_types],
 			"owner_render_engine_uuid": self.__owner_render_engine_uuid,
 			"parent_instance_uuid": self.__parent_instance_uuid,
-			"rendered_by_client_uuids": self.__rendered_by_client_uuids
+			"rendered_by_client_manager_uuids": self.__rendered_by_client_manager_uuids
 		}
 
 	@staticmethod
@@ -443,7 +589,7 @@ class Instance(ABC):
 
 class ModelInstance(Instance):
 
-	def __init__(self, model_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
+	def __init__(self, model_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_manager_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Model,
@@ -452,7 +598,7 @@ class ModelInstance(Instance):
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
 			parent_instance_uuid=parent_instance_uuid,
-			rendered_by_client_uuids=rendered_by_client_uuids
+			rendered_by_client_manager_uuids=rendered_by_client_manager_uuids
 		)
 
 		self.__model_uuid = model_uuid
@@ -475,13 +621,13 @@ class ModelInstance(Instance):
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
 			parent_instance_uuid=json_dict["parent_instance_uuid"],
-			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
+			rendered_by_client_manager_uuids=json_dict["rendered_by_client_manager_uuids"]
 		)
 
 
 class TextInstance(Instance):
 
-	def __init__(self, font_uuid: str, text: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
+	def __init__(self, font_uuid: str, text: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_manager_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Text,
@@ -490,7 +636,7 @@ class TextInstance(Instance):
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
 			parent_instance_uuid=parent_instance_uuid,
-			rendered_by_client_uuids=rendered_by_client_uuids
+			rendered_by_client_manager_uuids=rendered_by_client_manager_uuids
 		)
 
 		self.__font_uuid = font_uuid
@@ -522,13 +668,13 @@ class TextInstance(Instance):
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
 			parent_instance_uuid=json_dict["parent_instance_uuid"],
-			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
+			rendered_by_client_manager_uuids=json_dict["rendered_by_client_manager_uuids"]
 		)
 
 
 class ImageInstance(Instance):
 
-	def __init__(self, image_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
+	def __init__(self, image_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_manager_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Image,
@@ -537,7 +683,7 @@ class ImageInstance(Instance):
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
 			parent_instance_uuid=parent_instance_uuid,
-			rendered_by_client_uuids=rendered_by_client_uuids
+			rendered_by_client_manager_uuids=rendered_by_client_manager_uuids
 		)
 
 		self.__image_uuid = image_uuid
@@ -560,13 +706,13 @@ class ImageInstance(Instance):
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
 			parent_instance_uuid=json_dict["parent_instance_uuid"],
-			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
+			rendered_by_client_manager_uuids=json_dict["rendered_by_client_manager_uuids"]
 		)
 
 
 class CameraInstance(Instance):
 
-	def __init__(self, client_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_uuids: List[str]):
+	def __init__(self, client_uuid: str, instance_uuid: str, parallel_curves: List[Curve], client_event_types: List[EventTypeEnum], renderer_event_types: List[EventTypeEnum], owner_render_engine_uuid: str, parent_instance_uuid: str, rendered_by_client_manager_uuids: List[str]):
 		super().__init__(
 			instance_uuid=instance_uuid,
 			instance_type=InstanceTypeEnum.Camera,
@@ -575,7 +721,7 @@ class CameraInstance(Instance):
 			renderer_event_types=renderer_event_types,
 			owner_render_engine_uuid=owner_render_engine_uuid,
 			parent_instance_uuid=parent_instance_uuid,
-			rendered_by_client_uuids=rendered_by_client_uuids
+			rendered_by_client_manager_uuids=rendered_by_client_manager_uuids
 		)
 
 		self.__client_uuid = client_uuid
@@ -598,7 +744,7 @@ class CameraInstance(Instance):
 			renderer_event_types=[EventTypeEnum(x) for x in json_dict["renderer_event_types"]],
 			owner_render_engine_uuid=json_dict["owner_render_engine_uuid"],
 			parent_instance_uuid=json_dict["parent_instance_uuid"],
-			rendered_by_client_uuids=json_dict["rendered_by_client_uuids"]
+			rendered_by_client_manager_uuids=json_dict["rendered_by_client_manager_uuids"]
 		)
 
 
@@ -1217,3 +1363,202 @@ class RenderEngineFactory():
 			on_event_callable_per_event_type=self.__on_event_callable_per_event_type,
 			is_debug=self.__is_debug
 		)
+
+
+class RenderEngineScript():
+
+	def __init__(self, *, render_engine_factory: RenderEngineFactory, server_socket_factory: ServerSocketFactory, event_feed_host_pointer: HostPointer, rendered_instance_states_feed_host_pointer: HostPointer, apply_instance_deltas_feed_host_pointer: HostPointer, render_instances_feed_host_pointer: HostPointer, is_debug: bool = False):
+
+		self.__render_engine_factory = render_engine_factory
+		self.__server_socket_factory = server_socket_factory
+		self.__event_feed_host_pointer = event_feed_host_pointer
+		self.__rendered_instance_states_feed_host_pointer = rendered_instance_states_feed_host_pointer
+		self.__apply_instance_deltas_feed_host_pointer = apply_instance_deltas_feed_host_pointer
+		self.__render_instances_feed_host_pointer = render_instances_feed_host_pointer
+		self.__is_debug = is_debug
+
+		self.__is_disposed = False
+		self.__render_engine = None  # type: RenderEngine
+		self.__event_feed_server_socket = None  # type: ServerSocket
+		self.__event_feed_client_socket = None  # type: ClientSocket
+		self.__rendered_instance_states_feed_server_socket = None  # type: ServerSocket
+		self.__rendered_instance_states_feed_client_socket = None  # type: ClientSocket
+		self.__apply_instance_deltas_feed_server_socket = None  # type: ServerSocket
+		self.__apply_instance_deltas_feed_client_socket = None  # type: ClientSocket
+		self.__render_instances_feed_server_socket = None  # type: ServerSocket
+		self.__render_instances_feed_client_socket = None  # type: ClientSocket
+		self.__send_event_blocking_semaphore = Semaphore()
+
+		self.__initialize()
+
+	def __initialize(self):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __initialize: start")
+		try:
+			self.__send_event_blocking_semaphore.acquire()
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __initialize: end")
+
+	def start(self):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: start: start")
+		try:
+			self.__render_engine = self.__render_engine_factory.get_render_engine()
+			self.__render_engine.start(
+				on_start_callable=self.__render_engine_start_callable
+			)
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: start: end")
+
+	def send_event(self, event: Event):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: send_event: start")
+		try:
+			self.__send_event_blocking_semaphore.acquire()
+			self.__send_event_blocking_semaphore.release()
+
+			self.__event_feed_client_socket.write(json.dumps(event.to_json()))
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: send_event: end")
+
+	def __event_feed_server_socket_on_accepted_client_method(self, client_socket: ClientSocket):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __event_feed_server_socket_on_accepted_client_method: start")
+		try:
+			self.__event_feed_client_socket = client_socket
+			self.__send_event_blocking_semaphore.release()
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __event_feed_server_socket_on_accepted_client_method: end")
+
+	def __rendered_instance_states_feed_server_socket_on_accepted_client_method(self, client_socket: ClientSocket):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __rendered_instance_states_feed_server_socket_on_accepted_client_method: start")
+		try:
+			self.__rendered_instance_states_feed_client_socket = client_socket
+			while not self.__is_disposed:
+				try:
+					event_type_value = client_socket.read()
+				except ReadWriteSocketClosedException as ex:
+					if not self.__is_disposed:
+						raise
+					else:
+						break
+				event_type = EventTypeEnum(event_type_value)
+				rendered_instance_states = self.__render_engine.get_rendered_instance_states_by_event_type(
+					event_type=event_type
+				)
+				rendered_instance_states_json_string = json.dumps(rendered_instance_states)
+				try:
+					client_socket.write(rendered_instance_states_json_string)
+				except ReadWriteSocketClosedException as ex:
+					if not self.__is_disposed:
+						raise
+					else:
+						break
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __rendered_instance_states_feed_server_socket_on_accepted_client_method: end")
+
+	def __apply_instance_deltas_feed_server_socket_on_accepted_client_method(self, client_socket: ClientSocket):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __apply_instance_deltas_feed_server_socket_on_accepted_client_method: start")
+		try:
+			self.__apply_instance_deltas_feed_client_socket = client_socket
+			while not self.__is_disposed:
+				try:
+					instance_deltas_json_string = client_socket.read()
+				except ReadWriteSocketClosedException as ex:
+					if not self.__is_disposed:
+						raise
+					else:
+						break
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __apply_instance_deltas_feed_server_socket_on_accepted_client_method: instance_deltas_json_string: {instance_deltas_json_string}")
+				instance_deltas = [InstanceDelta.parse_json(json_dict=x) for x in json.loads(instance_deltas_json_string)]
+				self.__render_engine.apply_instance_deltas(
+					instance_deltas=instance_deltas
+				)
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __apply_instance_deltas_feed_server_socket_on_accepted_client_method: end")
+
+	def __render_instances_feed_server_socket_on_accepted_client_method(self, client_socket: ClientSocket):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __render_instances_feed_server_socket_on_accepted_client_method: start")
+		try:
+			self.__render_instances_feed_client_socket = client_socket
+			while not self.__is_disposed:
+				try:
+					instances_json_string = client_socket.read()
+				except ReadWriteSocketClosedException as ex:
+					if not self.__is_disposed:
+						raise
+					else:
+						break
+				if self.__is_debug:
+					print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __render_instances_feed_server_socket_on_accepted_client_method: instances_json_string: {instances_json_string}")
+				instances = [Instance.parse_json(json_dict=x) for x in json.loads(instances_json_string)]
+				self.__render_engine.render_instances(
+					instances=instances
+				)
+		finally:
+			if self.__is_debug:
+				print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __render_instances_feed_server_socket_on_accepted_client_method: end")
+
+	def __render_engine_start_callable(self, render_engine: RenderEngine):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __render_engine_start_callable: start")
+
+		self.__event_feed_server_socket = self.__server_socket_factory.get_server_socket()
+		self.__event_feed_server_socket.start_accepting_clients(
+			host_ip_address=self.__event_feed_host_pointer.get_host_address(),
+			host_port=self.__event_feed_host_pointer.get_host_port(),
+			on_accepted_client_method=self.__event_feed_server_socket_on_accepted_client_method
+		)
+
+		self.__rendered_instance_states_feed_server_socket = self.__server_socket_factory.get_server_socket()
+		self.__rendered_instance_states_feed_server_socket.start_accepting_clients(
+			host_ip_address=self.__rendered_instance_states_feed_host_pointer.get_host_address(),
+			host_port=self.__rendered_instance_states_feed_host_pointer.get_host_port(),
+			on_accepted_client_method=self.__rendered_instance_states_feed_server_socket_on_accepted_client_method
+		)
+
+		self.__apply_instance_deltas_feed_server_socket = self.__server_socket_factory.get_server_socket()
+		self.__apply_instance_deltas_feed_server_socket.start_accepting_clients(
+			host_ip_address=self.__apply_instance_deltas_feed_host_pointer.get_host_address(),
+			host_port=self.__apply_instance_deltas_feed_host_pointer.get_host_port(),
+			on_accepted_client_method=self.__apply_instance_deltas_feed_server_socket_on_accepted_client_method
+		)
+
+		self.__render_instances_feed_server_socket = self.__server_socket_factory.get_server_socket()
+		self.__render_instances_feed_server_socket.start_accepting_clients(
+			host_ip_address=self.__render_instances_feed_host_pointer.get_host_address(),
+			host_port=self.__render_instances_feed_host_pointer.get_host_port(),
+			on_accepted_client_method=self.__render_instances_feed_server_socket_on_accepted_client_method
+		)
+
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: __render_engine_start_callable: end")
+
+	def dispose(self):
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: dispose: start")
+
+		self.__is_disposed = True
+		self.__event_feed_server_socket.stop_accepting_clients()
+		self.__event_feed_server_socket.close()
+		if self.__event_feed_client_socket is not None:
+			self.__event_feed_client_socket.close()
+		self.__is_active_rendered_instance_states_feed = False
+		self.__rendered_instance_states_feed_server_socket.stop_accepting_clients()
+		self.__rendered_instance_states_feed_server_socket.close()
+		if self.__rendered_instance_states_feed_client_socket is not None:
+			self.__rendered_instance_states_feed_client_socket.close()
+		self.__render_engine.dispose()
+
+		if self.__is_debug:
+			print(f"{datetime.utcnow()}: {os.path.basename(__file__)}: RenderEngineScript: dispose: end")
